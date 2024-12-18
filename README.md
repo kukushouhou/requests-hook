@@ -1,8 +1,22 @@
 # request-hook
 
-
 ## 简介
 
+【注意】当前该模块尚未开发完毕，当前版本仅实现了 `proxy` 模式中 `XMLHttpRequest` 的 `onResponse` 处理。
+
+### API 参考
+
+本模块的 API 设计参考了 [ajax-hook](https://github.com/wendux/ajax-hook)。
+
+### 开发背景
+
+由于 `ajax-hook` 底层是基于 `Object.defineProperty` 实现的，这在与其他同类模块共用时容易导致兼容性问题。为了克服这一问题，我们开发了本模块。
+
+### 技术优势
+
+通过使用 `Proxy` 代理，本模块放弃了对低版本浏览器的支持，从而提供了更好的与其他模块的兼容性。`Object.defineProperty` 默认情况下只能被定义一次，如果页面中存在类似的 hook，则可能会导致出错或因覆盖而失效。而使用 `Proxy` 则避免了这些问题。
+
+【尚未开发】同时本模块扩展了对 `fetch` 、`sendBeacon`的支持，使其可以拦截所有网络请求，而不仅仅是 `XMLHttpRequest`。
 
 ## 使用
 
@@ -17,7 +31,8 @@
 一个简单示例：
 
 ```javascript
-import { proxy } from "request-hook";
+import {proxy} from "request-hook";
+
 proxy({
     //请求发起前进入
     onRequest: (config, handler) => {
