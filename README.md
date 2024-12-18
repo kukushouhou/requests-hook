@@ -25,7 +25,7 @@
 - NPM引入
 
   ```shell
-  npm install request-hook
+  npm install requests-hook
   ```
 
 一个简单示例：
