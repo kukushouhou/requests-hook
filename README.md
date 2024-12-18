@@ -1,4 +1,4 @@
-# request-hook
+# requests-hook
 
 ## 简介
 
@@ -31,7 +31,7 @@
 一个简单示例：
 
 ```javascript
-import {proxy} from "request-hook";
+import {proxy} from "requests-hook";
 
 proxy({
     //请求发起前进入

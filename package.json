@@ -1,5 +1,5 @@
 {
-  "name": "request-hook",
+  "name": "requests-hook",
   "version": "0.0.1",
   "main": "dist/cjs/index.js",
   "types": "dist/cjs/index.d.ts",
