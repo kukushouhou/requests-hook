@@ -1,0 +1,32 @@
+{
+  "name": "request-hook",
+  "version": "0.0.1",
+  "main": "dist/cjs/index.js",
+  "types": "dist/cjs/index.d.ts",
+  "author": {
+    "name": "kukushouhou",
+    "email": "1@kukushouhou,com",
+    "url": "https://github.com/kukushouhou"
+  },
+  "description": "Hooking XMLHttpRequest and fetch in browser, only es6.",
+  "keywords": [
+    "ajax hook",
+    "XMLHttpRequest hook",
+    "fetch hook"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kukushouhou/request-hook"
+  },
+  "bugs": {
+    "url": "https://github.com/kukushouhou/request-hook/issues"
+  },
+  "scripts": {
+    "dev": "father dev",
+    "build": "father build"
+  },
+  "devDependencies": {
+    "father": "^4.5.1",
+    "typescript": "^5.7.2"
+  }
+}
