@@ -106,9 +106,9 @@ function loadHeadersToRequestResponse(headers) {
 }
 function formatHeadersToResponse(headers) {
   const headersObj = {};
-  Object.keys(headers).forEach((key) => {
-    headersObj[key] = headers[key].toString();
-  });
+  for (const [key, value] of Object.entries(headers)) {
+    headersObj[key] = Array.isArray(value) ? value.join(",") : value;
+  }
   return headersObj;
 }
 function checkUserHasChangeResponse(newResponseObj, originResponseObj, originResponse, originResponseText, originResponseHeadersText) {
