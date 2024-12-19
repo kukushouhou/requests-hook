@@ -30,6 +30,42 @@ function proxyXHR(options, win) {
   class ProxyXMLHttpRequest extends OriginXMLHttpRequest {
     constructor() {
       super();
+      this.addEventListener = (type, listener, options2) => {
+        if (ProxyEventList.includes(type)) {
+          if (!(type in this._eventListeners)) {
+            this._eventListeners[type] = [];
+          }
+          this._eventListeners[type].push(listener);
+        } else {
+          this._originXhr.addEventListener(type, listener, options2);
+        }
+      };
+      this.open = (method, url, async, username, password) => {
+        this._requestConfig.method = method;
+        this._requestConfig.url = url;
+        this._requestConfig.async = async ?? true;
+        this._requestConfig.username = username;
+        this._requestConfig.password = password;
+        if (options.onRequest && !this._requestConfig.async) {
+          throw Error("[Not implemented]尚未实现");
+        } else {
+          this._originXhr.open(method, url, async ?? true, username, password);
+        }
+      };
+      this.send = (body) => {
+        this._requestConfig.body = body;
+        this._requestConfig.withCredentials = this.withCredentials;
+        if (options.onRequest) {
+          throw Error("[Not implemented]尚未实现");
+        } else {
+          this._originXhr.send(body);
+        }
+      };
+      this.setRequestHeader = (name, value) => {
+        console.log("ProxyXMLHttpRequest setRequestHeader", name, value);
+        this._requestConfig.headers[name] = value;
+        this._originXhr.setRequestHeader(name, value);
+      };
       this._originXhr = new OriginXMLHttpRequest();
       this._eventListeners = {};
       this._requestConfig = {
@@ -173,41 +209,6 @@ function proxyXHR(options, win) {
         this._dispatch("load");
         this._dispatch("loadend");
       }
-    }
-    addEventListener(type, listener, options2) {
-      if (ProxyEventList.includes(type)) {
-        if (!(type in this._eventListeners)) {
-          this._eventListeners[type] = [];
-        }
-        this._eventListeners[type].push(listener);
-      } else {
-        this._originXhr.addEventListener(type, listener, options2);
-      }
-    }
-    open(method, url, async, username, password) {
-      this._requestConfig.method = method;
-      this._requestConfig.url = url;
-      this._requestConfig.async = async ?? true;
-      this._requestConfig.username = username;
-      this._requestConfig.password = password;
-      if (options.onRequest && !this._requestConfig.async) {
-        throw Error("[Not implemented]尚未实现");
-      } else {
-        this._originXhr.open(method, url, async ?? true, username, password);
-      }
-    }
-    send(body) {
-      this._requestConfig.body = body;
-      this._requestConfig.withCredentials = this.withCredentials;
-      if (options.onRequest) {
-        throw Error("[Not implemented]尚未实现");
-      } else {
-        this._originXhr.send(body);
-      }
-    }
-    setRequestHeader(name, value) {
-      this._requestConfig.headers[name] = value;
-      this._originXhr.setRequestHeader(name, value);
     }
   }
   win.XMLHttpRequest = ProxyXMLHttpRequest;

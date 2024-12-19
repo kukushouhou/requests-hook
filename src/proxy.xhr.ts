@@ -164,6 +164,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
                     ths._dispatch('loadend');
                 },
                 reject(error: RequestError) {
+                    // TODO reject时的处理
                     throw Error('[Not implemented]尚未实现');
                 }
             }
@@ -172,7 +173,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         }
 
 
-        _originReadyStateChange() {
+        private _originReadyStateChange() {
             // console.log("ProxyXMLHttpRequest _originReadyStateChange", this._originXhr.readyState, this._originXhr, this);
             const readyState = this._originXhr.readyState;
             if (readyState === 4) {
@@ -188,7 +189,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             }
         }
 
-        addEventListener<K extends keyof XMLHttpRequestEventMap>(type: K, listener: (this: XMLHttpRequest, ev: XMLHttpRequestEventMap[K]) => any, options?: boolean | AddEventListenerOptions) {
+        addEventListener = <K extends keyof XMLHttpRequestEventMap>(type: K, listener: (this: XMLHttpRequest, ev: XMLHttpRequestEventMap[K]) => any, options?: boolean | AddEventListenerOptions) => {
             // console.log("ProxyXMLHttpRequest addEventListener", type, listener, options);
             if (ProxyEventList.includes(type)) {
                 if (!(type in this._eventListeners)) {
@@ -201,7 +202,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             // console.log('addEventListener end', this);
         }
 
-        open(method: string, url: string | URL, async?: boolean, username?: string | null | undefined, password?: string | null | undefined) {
+        open = (method: string, url: string | URL, async?: boolean, username?: string | null | undefined, password?: string | null | undefined) => {
             // console.log("ProxyXMLHttpRequest open", method, url, async, username, password);
             this._requestConfig.method = method;
             this._requestConfig.url = url;
@@ -216,7 +217,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             }
         }
 
-        send(body?: Document | XMLHttpRequestBodyInit | null) {
+        send = (body?: Document | XMLHttpRequestBodyInit | null) => {
             // console.log("ProxyXMLHttpRequest send", body);
             this._requestConfig.body = body;
             this._requestConfig.withCredentials = this.withCredentials;
@@ -228,8 +229,8 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             }
         }
 
-        setRequestHeader(name: string, value: string) {
-            // console.log("ProxyXMLHttpRequest setRequestHeader", name, value);
+        setRequestHeader = (name: string, value: string) => {
+            console.log("ProxyXMLHttpRequest setRequestHeader", name, value);
             this._requestConfig.headers[name] = value;
             this._originXhr.setRequestHeader(name, value);
         }
