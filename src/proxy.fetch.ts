@@ -95,9 +95,9 @@ function loadHeadersToRequestResponse(headers: Headers) {
 
 function formatHeadersToResponse(headers: Record<string, string | string[]>) {
     const headersObj: Record<string, string> = {};
-    Object.keys(headers).forEach(key => {
-        headersObj[key] = headers[key].toString();
-    });
+    for (const [key, value] of Object.entries(headers)) {
+        headersObj[key] = Array.isArray(value) ? value.join(',') : value;
+    }
     return headersObj;
 }
 
