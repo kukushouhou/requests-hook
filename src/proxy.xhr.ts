@@ -7,7 +7,19 @@ declare global {
 }
 
 const ProxyPropResponse = ['response', 'responseText', 'responseXML', 'status', 'statusText'];
-const ProxyGetPropWhiteList = ['open', 'send', 'setRequestHeader', 'dispatchEvent', 'addEventListener', 'onreadystatechange']
+const ProxyGetPropWhiteList = [
+    'open',
+    'send',
+    'setRequestHeader',
+    'getResponseHeader',
+    'getAllResponseHeaders',
+    'dispatchEvent',
+    'addEventListener',
+    'removeEventListener',
+    'onreadystatechange',
+    'onload',
+    'onloadend',
+]
 const ProxyEventList = ['readystatechange', 'load', 'loadend'];
 
 
@@ -40,6 +52,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
                 config: this._requestConfig,
                 headers: {},
                 response: null,
+                responseText: '',
                 responseXML: null,
                 status: 0,
                 statusText: ''
@@ -55,11 +68,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         private _get(target: this, prop: string | symbol): any {
             console.log("ProxyXMLHttpRequest _get", prop);
             if (typeof prop === 'string' && ProxyPropResponse.includes(prop)) {
-                if (prop === 'responseText') {
-                    return target._response.response;
-                } else {
-                    return (target._response as any)[prop];
-                }
+                return (target._response as any)[prop];
             } else if (typeof prop === 'string' && (ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_"))) {
                 const result = Reflect.get(target, prop);
                 if (typeof result === 'function' && !prop.startsWith('on')) {
@@ -88,11 +97,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         private _set(target: this, prop: string | symbol, value: any): boolean {
             console.log("ProxyXMLHttpRequest _set", prop, value);
             if (typeof prop === "string" && ProxyPropResponse.includes(prop)) {
-                if (prop === 'responseText') {
-                    target._response.response = value;
-                } else {
-                    (target._response as any)[prop] = value;
-                }
+                (target._response as any)[prop] = value;
             }
             if (prop === 'withCredentials') {
                 target._requestConfig.withCredentials = value;
@@ -116,9 +121,12 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             this._response.status = this._originXhr.status;
             this._response.statusText = this._originXhr.statusText;
             this._response.response = getResponseContent(this._originXhr);
-            try {
-                this._response.responseXML = this._originXhr.responseXML;
-            } catch (e) {
+            this._response.responseText = this._originXhr.responseText;
+            if (!this._originXhr.responseType || this._originXhr.responseType === 'document') {
+                try {
+                    this._response.responseXML = this._originXhr.responseXML;
+                } catch (e) {
+                }
             }
             this._response.headers = getResponseHeaders(this._originXhr);
             if (options.onResponse) {
@@ -202,6 +210,18 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             // console.log('addEventListener end', this);
         }
 
+        removeEventListener = <K extends keyof XMLHttpRequestEventMap>(type: K, listener: (this: XMLHttpRequest, ev: XMLHttpRequestEventMap[K]) => any, options?: boolean | EventListenerOptions) => {
+            // console.log("ProxyXMLHttpRequest removeEventListener", type, listener, options);
+            if (ProxyEventList.includes(type)) {
+                const index = this._eventListeners[type].indexOf(listener as any);
+                if (index !== -1) {
+                    this._eventListeners[type].splice(index, 1);
+                }
+            } else {
+                this._originXhr.removeEventListener(type, listener, options);
+            }
+        }
+
         open = (method: string, url: string | URL, async?: boolean, username?: string | null | undefined, password?: string | null | undefined) => {
             // console.log("ProxyXMLHttpRequest open", method, url, async, username, password);
             this._requestConfig.method = method;
@@ -230,9 +250,36 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         }
 
         setRequestHeader = (name: string, value: string) => {
-            console.log("ProxyXMLHttpRequest setRequestHeader", name, value);
+            // console.log("ProxyXMLHttpRequest setRequestHeader", name, value);
             this._requestConfig.headers[name] = value;
             this._originXhr.setRequestHeader(name, value);
+        }
+
+        getResponseHeader = (name: string) => {
+            // console.log("ProxyXMLHttpRequest getResponseHeader", name);
+            const header = this._response?.headers[name.toLowerCase()];
+            if (header !== undefined) {
+                if (Array.isArray(header)) {
+                    // 如果服务器返回多个同名的响应头，getResponseHeader 会将这些值拼接成一个字符串，中间用逗号分隔。大多数现代浏览器（如 Chrome、Firefox、Safari 和 Edge）都遵循这一行为
+                    return header.join(',');
+                }
+                return header;
+            }
+            return null;
+        }
+
+        getAllResponseHeaders = () => {
+            console.log("ProxyXMLHttpRequest getAllResponseHeaders");
+            const headers = this._response?.headers;
+            const headerLines: string[] = [];
+            for (const [key, value] of Object.entries(headers)) {
+                if (Array.isArray(value)) {
+                    value.forEach(v => headerLines.push(`${key}: ${v}`));
+                } else {
+                    headerLines.push(`${key}: ${value}`);
+                }
+            }
+            return headerLines.join('\r\n');
         }
     }
 
@@ -244,16 +291,18 @@ function getResponseHeaders(xhr: XMLHttpRequest) {
     const headerMap: Record<string, string | string[]> = {};
     for (const header of headers.split('\n')) {
         if (!header) continue;
-        const [key, value] = header.trim().split(': ');
-        const keyLower = key.toLowerCase();
-        if (headerMap[keyLower]) {
-            if (Array.isArray(headerMap[keyLower])) {
-                headerMap[keyLower].push(value);
+        let [key, ...values] = header.trim().split(': ');
+        key = key.trim();
+        const value = values.join(': ').trim();
+        if (headerMap[key]) {
+            const oldValue = headerMap[key];
+            if (Array.isArray(oldValue)) {
+                oldValue.push(value);
             } else {
-                headerMap[keyLower] = [headerMap[keyLower], value];
+                headerMap[key] = [oldValue, value];
             }
         } else {
-            headerMap[keyLower] = value;
+            headerMap[key] = value;
         }
     }
     return headerMap;
@@ -263,8 +312,8 @@ function getResponseContent(xhr: XMLHttpRequest) {
     if (!xhr.responseType || xhr.responseType === 'text') {
         return xhr.responseText;
     } else if (xhr.responseType === 'json') {
-        if (typeof xhr.responseText === "object") {
-            return xhr.responseText;
+        if (typeof xhr.response === "object") {
+            return xhr.response;
         } else {
             try {
                 return JSON.parse(xhr.responseText);

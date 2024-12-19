@@ -23,7 +23,19 @@ __export(proxy_xhr_exports, {
 });
 module.exports = __toCommonJS(proxy_xhr_exports);
 var ProxyPropResponse = ["response", "responseText", "responseXML", "status", "statusText"];
-var ProxyGetPropWhiteList = ["open", "send", "setRequestHeader", "dispatchEvent", "addEventListener", "onreadystatechange"];
+var ProxyGetPropWhiteList = [
+  "open",
+  "send",
+  "setRequestHeader",
+  "getResponseHeader",
+  "getAllResponseHeaders",
+  "dispatchEvent",
+  "addEventListener",
+  "removeEventListener",
+  "onreadystatechange",
+  "onload",
+  "onloadend"
+];
 var ProxyEventList = ["readystatechange", "load", "loadend"];
 function proxyXHR(options, win) {
   const { XMLHttpRequest: OriginXMLHttpRequest } = win;
@@ -38,6 +50,16 @@ function proxyXHR(options, win) {
           this._eventListeners[type].push(listener);
         } else {
           this._originXhr.addEventListener(type, listener, options2);
+        }
+      };
+      this.removeEventListener = (type, listener, options2) => {
+        if (ProxyEventList.includes(type)) {
+          const index = this._eventListeners[type].indexOf(listener);
+          if (index !== -1) {
+            this._eventListeners[type].splice(index, 1);
+          }
+        } else {
+          this._originXhr.removeEventListener(type, listener, options2);
         }
       };
       this.open = (method, url, async, username, password) => {
@@ -62,9 +84,33 @@ function proxyXHR(options, win) {
         }
       };
       this.setRequestHeader = (name, value) => {
-        console.log("ProxyXMLHttpRequest setRequestHeader", name, value);
         this._requestConfig.headers[name] = value;
         this._originXhr.setRequestHeader(name, value);
+      };
+      this.getResponseHeader = (name) => {
+        var _a;
+        const header = (_a = this._response) == null ? void 0 : _a.headers[name.toLowerCase()];
+        if (header !== void 0) {
+          if (Array.isArray(header)) {
+            return header.join(",");
+          }
+          return header;
+        }
+        return null;
+      };
+      this.getAllResponseHeaders = () => {
+        var _a;
+        console.log("ProxyXMLHttpRequest getAllResponseHeaders");
+        const headers = (_a = this._response) == null ? void 0 : _a.headers;
+        const headerLines = [];
+        for (const [key, value] of Object.entries(headers)) {
+          if (Array.isArray(value)) {
+            value.forEach((v) => headerLines.push(`${key}: ${v}`));
+          } else {
+            headerLines.push(`${key}: ${value}`);
+          }
+        }
+        return headerLines.join("\r\n");
       };
       this._originXhr = new OriginXMLHttpRequest();
       this._eventListeners = {};
@@ -80,6 +126,7 @@ function proxyXHR(options, win) {
         config: this._requestConfig,
         headers: {},
         response: null,
+        responseText: "",
         responseXML: null,
         status: 0,
         statusText: ""
@@ -91,11 +138,7 @@ function proxyXHR(options, win) {
     _get(target, prop) {
       console.log("ProxyXMLHttpRequest _get", prop);
       if (typeof prop === "string" && ProxyPropResponse.includes(prop)) {
-        if (prop === "responseText") {
-          return target._response.response;
-        } else {
-          return target._response[prop];
-        }
+        return target._response[prop];
       } else if (typeof prop === "string" && (ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_"))) {
         const result2 = Reflect.get(target, prop);
         if (typeof result2 === "function" && !prop.startsWith("on")) {
@@ -121,11 +164,7 @@ function proxyXHR(options, win) {
     _set(target, prop, value) {
       console.log("ProxyXMLHttpRequest _set", prop, value);
       if (typeof prop === "string" && ProxyPropResponse.includes(prop)) {
-        if (prop === "responseText") {
-          target._response.response = value;
-        } else {
-          target._response[prop] = value;
-        }
+        target._response[prop] = value;
       }
       if (prop === "withCredentials") {
         target._requestConfig.withCredentials = value;
@@ -146,9 +185,12 @@ function proxyXHR(options, win) {
       this._response.status = this._originXhr.status;
       this._response.statusText = this._originXhr.statusText;
       this._response.response = getResponseContent(this._originXhr);
-      try {
-        this._response.responseXML = this._originXhr.responseXML;
-      } catch (e) {
+      this._response.responseText = this._originXhr.responseText;
+      if (!this._originXhr.responseType || this._originXhr.responseType === "document") {
+        try {
+          this._response.responseXML = this._originXhr.responseXML;
+        } catch (e) {
+        }
       }
       this._response.headers = getResponseHeaders(this._originXhr);
       if (options.onResponse) {
@@ -219,16 +261,18 @@ function getResponseHeaders(xhr) {
   for (const header of headers.split("\n")) {
     if (!header)
       continue;
-    const [key, value] = header.trim().split(": ");
-    const keyLower = key.toLowerCase();
-    if (headerMap[keyLower]) {
-      if (Array.isArray(headerMap[keyLower])) {
-        headerMap[keyLower].push(value);
+    let [key, ...values] = header.trim().split(": ");
+    key = key.trim();
+    const value = values.join(": ").trim();
+    if (headerMap[key]) {
+      const oldValue = headerMap[key];
+      if (Array.isArray(oldValue)) {
+        oldValue.push(value);
       } else {
-        headerMap[keyLower] = [headerMap[keyLower], value];
+        headerMap[key] = [oldValue, value];
       }
     } else {
-      headerMap[keyLower] = value;
+      headerMap[key] = value;
     }
   }
   return headerMap;
@@ -237,8 +281,8 @@ function getResponseContent(xhr) {
   if (!xhr.responseType || xhr.responseType === "text") {
     return xhr.responseText;
   } else if (xhr.responseType === "json") {
-    if (typeof xhr.responseText === "object") {
-      return xhr.responseText;
+    if (typeof xhr.response === "object") {
+      return xhr.response;
     } else {
       try {
         return JSON.parse(xhr.responseText);

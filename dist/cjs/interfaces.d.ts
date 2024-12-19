@@ -20,6 +20,7 @@ export interface RequestResponse {
     config: RequestConfig;
     headers: Record<string, string | string[]>;
     response: any;
+    responseText: string;
     responseXML: Document | null;
     status: number;
     statusText?: string;
