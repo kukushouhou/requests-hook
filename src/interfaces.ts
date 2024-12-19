@@ -15,8 +15,10 @@ export interface RequestConfig {
     async?: boolean,
     username?: string | null | undefined,
     password?: string | null | undefined,
-    withCredentials: boolean
-    xhr: XMLHttpRequest,
+    withCredentials: boolean,
+    type: 'XMLHttpRequest' | 'fetch',
+    xhr?: XMLHttpRequest,
+    fetch?: Request
 }
 
 export interface RequestResponse {
@@ -25,6 +27,7 @@ export interface RequestResponse {
     response: any,
     responseText: string,
     responseXML: Document | null,
+    responseClone?: Response,
     status: number,
     statusText?: string,
 }

@@ -14,7 +14,9 @@ export interface RequestConfig {
     username?: string | null | undefined;
     password?: string | null | undefined;
     withCredentials: boolean;
-    xhr: XMLHttpRequest;
+    type: 'XMLHttpRequest' | 'fetch';
+    xhr?: XMLHttpRequest;
+    fetch?: Request;
 }
 export interface RequestResponse {
     config: RequestConfig;
@@ -22,6 +24,7 @@ export interface RequestResponse {
     response: any;
     responseText: string;
     responseXML: Document | null;
+    responseClone?: Response;
     status: number;
     statusText?: string;
 }
