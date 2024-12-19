@@ -2,7 +2,7 @@
 
 ## 简介
 
-【注意】当前该模块尚未开发完毕，当前版本仅实现了 `proxy` 模式中 `XMLHttpRequest` 的 `onResponse` 处理。
+【注意】当前该模块尚未开发完毕，当前版本仅实现了 `proxy` 模式中 `fetch` 和 `XMLHttpRequest` 的 `onResponse` 处理。
 
 ### API 参考
 
