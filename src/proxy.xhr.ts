@@ -45,6 +45,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
                 headers: {},
                 method: '',
                 withCredentials: this.withCredentials,
+                type: 'XMLHttpRequest',
                 xhr: this._originXhr
             };
 
@@ -66,7 +67,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         }
 
         private _get(target: this, prop: string | symbol): any {
-            console.log("ProxyXMLHttpRequest _get", prop);
+            // console.log("ProxyXMLHttpRequest _get", prop);
             if (typeof prop === 'string' && ProxyPropResponse.includes(prop)) {
                 return (target._response as any)[prop];
             } else if (typeof prop === 'string' && (ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_"))) {
@@ -95,7 +96,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         }
 
         private _set(target: this, prop: string | symbol, value: any): boolean {
-            console.log("ProxyXMLHttpRequest _set", prop, value);
+            // console.log("ProxyXMLHttpRequest _set", prop, value);
             if (typeof prop === "string" && ProxyPropResponse.includes(prop)) {
                 (target._response as any)[prop] = value;
             }
@@ -165,7 +166,6 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
                 next(response: RequestResponse) {
                 },
                 resolve(response: RequestResponse) {
-                    console.log("handler resolve");
                     ths._response = response;
                     ths._dispatch('readystatechange');
                     ths._dispatch('load');
@@ -269,7 +269,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         }
 
         getAllResponseHeaders = () => {
-            console.log("ProxyXMLHttpRequest getAllResponseHeaders");
+            // console.log("ProxyXMLHttpRequest getAllResponseHeaders");
             const headers = this._response?.headers;
             const headerLines: string[] = [];
             for (const [key, value] of Object.entries(headers)) {

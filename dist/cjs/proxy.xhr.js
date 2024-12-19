@@ -100,7 +100,6 @@ function proxyXHR(options, win) {
       };
       this.getAllResponseHeaders = () => {
         var _a;
-        console.log("ProxyXMLHttpRequest getAllResponseHeaders");
         const headers = (_a = this._response) == null ? void 0 : _a.headers;
         const headerLines = [];
         for (const [key, value] of Object.entries(headers)) {
@@ -120,6 +119,7 @@ function proxyXHR(options, win) {
         headers: {},
         method: "",
         withCredentials: this.withCredentials,
+        type: "XMLHttpRequest",
         xhr: this._originXhr
       };
       this._response = {
@@ -136,7 +136,6 @@ function proxyXHR(options, win) {
       return ths;
     }
     _get(target, prop) {
-      console.log("ProxyXMLHttpRequest _get", prop);
       if (typeof prop === "string" && ProxyPropResponse.includes(prop)) {
         return target._response[prop];
       } else if (typeof prop === "string" && (ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_"))) {
@@ -162,7 +161,6 @@ function proxyXHR(options, win) {
       return true;
     }
     _set(target, prop, value) {
-      console.log("ProxyXMLHttpRequest _set", prop, value);
       if (typeof prop === "string" && ProxyPropResponse.includes(prop)) {
         target._response[prop] = value;
       }
@@ -226,7 +224,6 @@ function proxyXHR(options, win) {
         next(response) {
         },
         resolve(response) {
-          console.log("handler resolve");
           ths._response = response;
           ths._dispatch("readystatechange");
           ths._dispatch("load");
