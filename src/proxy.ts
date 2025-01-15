@@ -1,6 +1,6 @@
 import {ProxyOptions} from "./interfaces";
-import proxyXHR from "./proxy.xhr";
 import proxyFetch from "./proxy.fetch";
+import proxyXHR from "./proxy.xhr";
 
 
 export default function proxy(options: ProxyOptions, win?: Window) {

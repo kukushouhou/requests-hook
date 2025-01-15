@@ -31,12 +31,14 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         _response: RequestResponse;
         _originXhr: XMLHttpRequest;
         _eventListeners: { [key: string]: Array<(e: Event) => void> };
+        _lastReadyState: number;
 
         constructor() {
             super();
 
             this._originXhr = new OriginXMLHttpRequest();
             this._eventListeners = {};
+            this._lastReadyState = 0;
             // 绑定原始的xhr的各种事件
 
             this._requestConfig = {
@@ -150,6 +152,13 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
         }
 
         private _dispatch(type: string) {
+            if (type === 'readystatechange') {
+                if (this._lastReadyState === this._originXhr.readyState) {
+                    // readystatechange事件，如果readyState没有变化，则不派发事件，因为如果多次hook，readystatechange事件会多次触发，照成死循环递归
+                    return;
+                }
+                this._lastReadyState = this._originXhr.readyState;
+            }
             const event_handler = this._eventListeners[type];
             const event_handler_name = `on${type}`;
             const event_on_handler = (this as any)[event_handler_name];

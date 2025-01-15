@@ -5,3 +5,4 @@ declare global {
     }
 }
 export default function proxyXHR(options: ProxyOptions, win: Window): void;
+//# sourceMappingURL=proxy.xhr.d.ts.map

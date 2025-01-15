@@ -113,6 +113,7 @@ function proxyXHR(options, win) {
       };
       this._originXhr = new OriginXMLHttpRequest();
       this._eventListeners = {};
+      this._lastReadyState = 0;
       this._requestConfig = {
         url: "",
         body: null,
@@ -209,6 +210,12 @@ function proxyXHR(options, win) {
       return newEvent;
     }
     _dispatch(type) {
+      if (type === "readystatechange") {
+        if (this._lastReadyState === this._originXhr.readyState) {
+          return;
+        }
+        this._lastReadyState = this._originXhr.readyState;
+      }
       const event_handler = this._eventListeners[type];
       const event_handler_name = `on${type}`;
       const event_on_handler = this[event_handler_name];

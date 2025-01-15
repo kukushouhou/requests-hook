@@ -32,13 +32,13 @@ __export(proxy_exports, {
   default: () => proxy
 });
 module.exports = __toCommonJS(proxy_exports);
-var import_proxy = __toESM(require("./proxy.xhr"));
-var import_proxy2 = __toESM(require("./proxy.fetch"));
+var import_proxy = __toESM(require("./proxy.fetch"));
+var import_proxy2 = __toESM(require("./proxy.xhr"));
 function proxy(options, win) {
   if (options.proxyXHR ?? true) {
-    (0, import_proxy.default)(options, win ?? window);
+    (0, import_proxy2.default)(options, win ?? window);
   }
   if (options.proxyFetch ?? true) {
-    (0, import_proxy2.default)(options, win ?? window);
+    (0, import_proxy.default)(options, win ?? window);
   }
 }

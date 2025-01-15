@@ -47,3 +47,4 @@ export interface RequestError {
     type: RequestErrorType;
 }
 export {};
+//# sourceMappingURL=interfaces.d.ts.map
