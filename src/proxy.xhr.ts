@@ -19,7 +19,16 @@ const ProxyGetPropWhiteList = [
     'onreadystatechange',
     'onload',
     'onloadend',
-]
+];
+const ProxySetPropBlackList = [
+    'open',
+    'send',
+    'setRequestHeader',
+    'getResponseHeader',
+    'getAllResponseHeaders',
+    'addEventListener',
+    'removeEventListener',
+];
 const ProxyEventList = ['readystatechange', 'load', 'loadend'];
 
 
@@ -68,11 +77,14 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             return ths;
         }
 
-        private _get(target: this, prop: string | symbol): any {
+        private _get(target: this, prop: string | symbol, receiver: any): any {
             // console.log("ProxyXMLHttpRequest _get", prop);
-            if (typeof prop === 'string' && ProxyPropResponse.includes(prop)) {
+            if (typeof prop === 'symbol') {
+                return Reflect.get(target, prop, receiver);
+            }
+            if (ProxyPropResponse.includes(prop)) {
                 return (target._response as any)[prop];
-            } else if (typeof prop === 'string' && (ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_"))) {
+            } else if ((ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_"))) {
                 const result = Reflect.get(target, prop);
                 if (typeof result === 'function' && !prop.startsWith('on')) {
                     return result.bind(target);
@@ -80,20 +92,35 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
                 return result;
             }
             const result = (target._originXhr as any)[prop];
-            if (typeof result === 'function' && (typeof prop !== "string" || !prop.startsWith('on')) && OriginXMLHttpRequest.prototype.hasOwnProperty(prop)) {
+            if (typeof result === 'function' && !prop.startsWith('on') && OriginXMLHttpRequest.prototype.hasOwnProperty(prop)) {
                 // 自带的方法，需要补充绑定到_originXhr上，否则调用会报错
                 return result.bind(target._originXhr);
             }
             return result;
         }
 
-        private _setToOrigin(prop: string | symbol) {
+        /**
+         * 判断给定的属性是否需要被设置为原始值。
+         *
+         * @param prop - 属性名，可以是字符串或符号类型。
+         *           - 如果是字符串类型，会进一步检查是否以 'on' 开头。
+         *           - 如果是符号类型，则直接返回 true。
+         * @returns {boolean}
+         *           - 如果属性名是字符串且以 'on' 开头，则检查其事件名称是否不在 ProxyEventList 中，返回布尔值。
+         *           - 如果属性名是符号类型，或者不以 'on' 开头，则返回 true。
+         */
+        private _setToOrigin(prop: string | symbol): boolean {
+            // 检查属性名是否为字符串类型
             if (typeof prop === 'string') {
+                // 如果属性名以 'on' 开头，则提取事件名称并判断是否在 ProxyEventList 中
                 if (prop.startsWith('on')) {
-                    const eventName = prop.slice(2);
-                    return !ProxyEventList.includes(eventName)
+                    const eventName = prop.slice(2); // 提取事件名称（去掉前缀 'on'）
+                    return !ProxyEventList.includes(eventName); // 返回事件名称是否不在 ProxyEventList 中
+                } else if (ProxySetPropBlackList.includes(prop)) {
+                    return false;
                 }
             }
+            // 如果属性名不是字符串类型，或者不以 'on' 开头，则返回 true
             return true;
         }
 
@@ -120,7 +147,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             }
         }
 
-        private _ready() {
+        private _ready = () => {
             this._response.status = this._originXhr.status;
             this._response.statusText = this._originXhr.statusText;
             this._response.response = getResponseContent(this._originXhr);
@@ -151,7 +178,7 @@ export default function proxyXHR(options: ProxyOptions, win: Window) {
             return newEvent;
         }
 
-        private _dispatch(type: string) {
+        private _dispatch = (type: string) => {
             if (type === 'readystatechange') {
                 if (this._lastReadyState === this._originXhr.readyState) {
                     // readystatechange事件，如果readyState没有变化，则不派发事件，因为如果多次hook，readystatechange事件会多次触发，照成死循环递归

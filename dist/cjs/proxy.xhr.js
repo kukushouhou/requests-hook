@@ -36,12 +36,59 @@ var ProxyGetPropWhiteList = [
   "onload",
   "onloadend"
 ];
+var ProxySetPropBlackList = [
+  "open",
+  "send",
+  "setRequestHeader",
+  "getResponseHeader",
+  "getAllResponseHeaders",
+  "addEventListener",
+  "removeEventListener"
+];
 var ProxyEventList = ["readystatechange", "load", "loadend"];
 function proxyXHR(options, win) {
   const { XMLHttpRequest: OriginXMLHttpRequest } = win;
   class ProxyXMLHttpRequest extends OriginXMLHttpRequest {
     constructor() {
       super();
+      this._ready = () => {
+        this._response.status = this._originXhr.status;
+        this._response.statusText = this._originXhr.statusText;
+        this._response.response = getResponseContent(this._originXhr);
+        this._response.responseText = this._originXhr.responseText;
+        if (!this._originXhr.responseType || this._originXhr.responseType === "document") {
+          try {
+            this._response.responseXML = this._originXhr.responseXML;
+          } catch (e) {
+          }
+        }
+        this._response.headers = getResponseHeaders(this._originXhr);
+        if (options.onResponse) {
+          try {
+            options.onResponse(this._response, this._createResponseHandler());
+            return false;
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        return true;
+      };
+      this._dispatch = (type) => {
+        if (type === "readystatechange") {
+          if (this._lastReadyState === this._originXhr.readyState) {
+            return;
+          }
+          this._lastReadyState = this._originXhr.readyState;
+        }
+        const event_handler = this._eventListeners[type];
+        const event_handler_name = `on${type}`;
+        const event_on_handler = this[event_handler_name];
+        if (event_on_handler || (event_handler == null ? void 0 : event_handler.length)) {
+          const event = this._createEvent(type);
+          event_on_handler == null ? void 0 : event_on_handler(event);
+          event_handler == null ? void 0 : event_handler.forEach((item) => item(event));
+        }
+      };
       this.addEventListener = (type, listener, options2) => {
         if (ProxyEventList.includes(type)) {
           if (!(type in this._eventListeners)) {
@@ -136,10 +183,13 @@ function proxyXHR(options, win) {
       this._originXhr.addEventListener("readystatechange", this._originReadyStateChange.bind(ths));
       return ths;
     }
-    _get(target, prop) {
-      if (typeof prop === "string" && ProxyPropResponse.includes(prop)) {
+    _get(target, prop, receiver) {
+      if (typeof prop === "symbol") {
+        return Reflect.get(target, prop, receiver);
+      }
+      if (ProxyPropResponse.includes(prop)) {
         return target._response[prop];
-      } else if (typeof prop === "string" && (ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_"))) {
+      } else if (ProxyGetPropWhiteList.includes(prop) || prop.startsWith("_")) {
         const result2 = Reflect.get(target, prop);
         if (typeof result2 === "function" && !prop.startsWith("on")) {
           return result2.bind(target);
@@ -147,16 +197,28 @@ function proxyXHR(options, win) {
         return result2;
       }
       const result = target._originXhr[prop];
-      if (typeof result === "function" && (typeof prop !== "string" || !prop.startsWith("on")) && OriginXMLHttpRequest.prototype.hasOwnProperty(prop)) {
+      if (typeof result === "function" && !prop.startsWith("on") && OriginXMLHttpRequest.prototype.hasOwnProperty(prop)) {
         return result.bind(target._originXhr);
       }
       return result;
     }
+    /**
+     * 判断给定的属性是否需要被设置为原始值。
+     *
+     * @param prop - 属性名，可以是字符串或符号类型。
+     *           - 如果是字符串类型，会进一步检查是否以 'on' 开头。
+     *           - 如果是符号类型，则直接返回 true。
+     * @returns {boolean}
+     *           - 如果属性名是字符串且以 'on' 开头，则检查其事件名称是否不在 ProxyEventList 中，返回布尔值。
+     *           - 如果属性名是符号类型，或者不以 'on' 开头，则返回 true。
+     */
     _setToOrigin(prop) {
       if (typeof prop === "string") {
         if (prop.startsWith("on")) {
           const eventName = prop.slice(2);
           return !ProxyEventList.includes(eventName);
+        } else if (ProxySetPropBlackList.includes(prop)) {
+          return false;
         }
       }
       return true;
@@ -180,50 +242,12 @@ function proxyXHR(options, win) {
         return false;
       }
     }
-    _ready() {
-      this._response.status = this._originXhr.status;
-      this._response.statusText = this._originXhr.statusText;
-      this._response.response = getResponseContent(this._originXhr);
-      this._response.responseText = this._originXhr.responseText;
-      if (!this._originXhr.responseType || this._originXhr.responseType === "document") {
-        try {
-          this._response.responseXML = this._originXhr.responseXML;
-        } catch (e) {
-        }
-      }
-      this._response.headers = getResponseHeaders(this._originXhr);
-      if (options.onResponse) {
-        try {
-          options.onResponse(this._response, this._createResponseHandler());
-          return false;
-        } catch (e) {
-          console.error(e);
-        }
-      }
-      return true;
-    }
     _createEvent(type) {
       const newEvent = new Event(type, { bubbles: true, cancelable: true });
       Object.defineProperty(newEvent, "target", { value: this, writable: false });
       Object.defineProperty(newEvent, "currentTarget", { value: this, writable: false });
       Object.defineProperty(newEvent, "srcElement", { value: this, writable: false });
       return newEvent;
-    }
-    _dispatch(type) {
-      if (type === "readystatechange") {
-        if (this._lastReadyState === this._originXhr.readyState) {
-          return;
-        }
-        this._lastReadyState = this._originXhr.readyState;
-      }
-      const event_handler = this._eventListeners[type];
-      const event_handler_name = `on${type}`;
-      const event_on_handler = this[event_handler_name];
-      if (event_on_handler || (event_handler == null ? void 0 : event_handler.length)) {
-        const event = this._createEvent(type);
-        event_on_handler == null ? void 0 : event_on_handler(event);
-        event_handler == null ? void 0 : event_handler.forEach((item) => item(event));
-      }
     }
     _createResponseHandler() {
       const ths = this;
